@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Starter - 大模型入门助手</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- 引入 Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800" x-data="appData()">
+
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                        🤖 LLM Starter
+                    </span>
+                </div>
+                <!-- 导航按钮 -->
+                <div class="flex space-x-4 sm:space-x-8 items-center overflow-x-auto">
+                    <template x-for="tab in tabs" :key="tab.id">
+                        <button
+                            @click="currentTab = tab.id"
+                            :class="currentTab === tab.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                            class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition duration-150 ease-in-out h-full focus:outline-none whitespace-nowrap"
+                            x-text="tab.name"
+                        ></button>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen">
+
+        <!-- 1. 发展简史板块 -->
+        <div x-show="currentTab === 'history'" x-transition.opacity.duration.300ms>
+            <h2 class="text-3xl font-bold mb-8 text-slate-900">大模型发展简史</h2>
+            <div class="relative border-l-4 border-blue-200 ml-3 space-y-8">
+                <template x-for="item in history" :key="item.year">
+                    <div class="mb-8 ml-6 group">
+                        <span class="absolute -left-3 flex items-center justify-center w-6 h-6 bg-blue-500 rounded-full ring-4 ring-white">
+                            <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                        </span>
+                        <div class="p-5 bg-white rounded-lg shadow-sm hover:shadow-md transition border border-slate-100">
+                            <div class="flex items-baseline justify-between">
+                                <h3 class="text-xl font-bold text-slate-800" x-text="item.title"></h3>
+                                <span class="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded" x-text="item.year"></span>
+                            </div>
+                            <p class="mt-2 text-slate-600 leading-relaxed" x-text="item.desc"></p>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- 2. 学习工具板块 -->
+        <div x-show="currentTab === 'tools'" x-transition.opacity.duration.300ms style="display: none;">
+            <h2 class="text-3xl font-bold mb-2 text-slate-900">学习工具箱</h2>
+            <p class="mb-8 text-slate-500">工欲善其事，必先利其器。</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <template x-for="tool in tools" :key="tool.name">
+                    <a :href="tool.url" target="_blank" class="block p-6 bg-white rounded-xl shadow-sm hover:shadow-lg transition border border-slate-100 group">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="p-2 rounded-lg" :class="tool.bgColor">
+                                <span class="text-xl" x-text="tool.icon"></span>
+                            </div>
+                            <span class="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-500" x-text="tool.category"></span>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800 group-hover:text-blue-600 transition" x-text="tool.name"></h3>
+                        <p class="mt-2 text-sm text-slate-500" x-text="tool.desc"></p>
+                    </a>
+                </template>
+            </div>
+        </div>
+
+        <!-- 3. [新增] 提示词库板块 -->
+        <div x-show="currentTab === 'prompts'" x-transition.opacity.duration.300ms style="display: none;">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-slate-900">提示词（Prompt）宝库</h2>
+                <p class="mt-2 text-slate-500">复制即用的高质量指令，助你激发大模型潜能。</p>
+            </div>
+
+            <!-- 分类循环 -->
+            <template x-for="category in promptCategories" :key="category.name">
+                <div class="mb-10">
+                    <h3 class="flex items-center text-xl font-bold text-slate-800 mb-4 border-l-4 border-indigo-500 pl-3">
+                        <span x-text="category.name"></span>
+                        <span class="ml-2 text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full" x-text="category.list.length + '个'"></span>
+                    </h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- 卡片循环 -->
+                        <template x-for="prompt in category.list" :key="prompt.title">
+                            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col h-full hover:border-indigo-300 transition" x-data="{ copied: false }">
+                                <div class="flex justify-between items-start mb-3">
+                                    <h4 class="font-bold text-slate-700" x-text="prompt.title"></h4>
+                                    <!-- 复制按钮 -->
+                                    <button
+                                        @click="navigator.clipboard.writeText(prompt.content); copied = true; setTimeout(() => copied = false, 2000)"
+                                        class="flex items-center text-xs px-2 py-1 rounded border transition-colors duration-200"
+                                        :class="copied ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'"
+                                    >
+                                        <span x-show="!copied" class="flex items-center">
+                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                            复制
+                                        </span>
+                                        <span x-show="copied" class="flex items-center" x-cloak>
+                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                            已复制
+                                        </span>
+                                    </button>
+                                </div>
+                                <!-- Prompt 内容展示区 -->
+                                <div class="relative bg-slate-50 rounded p-3 text-sm text-slate-600 font-mono flex-grow border border-slate-100">
+                                    <p class="line-clamp-4 whitespace-pre-wrap" x-text="prompt.content"></p>
+                                    <div class="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 to-transparent"></div>
+                                </div>
+                                <p class="mt-3 text-xs text-slate-400 italic" x-text="prompt.tip ? '💡 ' + prompt.tip : ''"></p>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- 4. 资讯板块 -->
+        <div x-show="currentTab === 'news'" x-transition.opacity.duration.300ms style="display: none;">
+            <div class="flex justify-between items-end mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-slate-900">前沿资讯</h2>
+                </div>
+            </div>
+            <div class="space-y-4">
+                <template x-for="news in newsList" :key="news.id">
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-50 transition cursor-pointer">
+                        <div>
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="px-2 py-0.5 rounded text-xs font-bold text-white" :class="news.tagColor" x-text="news.tag"></span>
+                                <span class="text-xs text-slate-400" x-text="news.date"></span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-slate-800" x-text="news.title"></h3>
+                            <p class="text-sm text-slate-500 mt-1" x-text="news.summary"></p>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="bg-white mt-12 py-8 border-t border-slate-200">
+        <div class="max-w-6xl mx-auto px-4 text-center text-slate-400 text-sm">
+            <p>© 2024 LLM Learning Tool. Created for learning purposes.</p>
+        </div>
+    </footer>
+
+    <!-- 数据控制脚本 -->
+    <script>
+        function appData() {
+            return {
+                currentTab: 'prompts', // 将默认 Tab 设为 'prompts' 方便你查看效果，发布时可改回 'history'
+                tabs: [
+                    { id: 'history', name: '发展简史' },
+                    { id: 'tools', name: '学习工具' },
+                    { id: 'prompts', name: '提示词库' }, // 新增 Tab
+                    { id: 'news', name: '前沿资讯' }
+                ],
+                // --- 提示词数据 ---
+                promptCategories: [
+                    {
+                        name: "📊 行业研究类",
+                        list: [
+                            {
+                                title: "快速行业调研",
+                                content: "我是一名投资分析师，需要对[输入行业名称，例如：低空经济]进行快速调研。请帮我生成一份行业分析框架，包括：1. 行业定义与核心产业链；2. 市场规模及未来3年增长预测；3. 关键驱动因素（PEST模型分析）；4. 行业内Top 5 主要竞争对手及其优劣势。请以结构化的Markdown格式输出。",
+                                tip: "把方括号里的内容替换成你想研究的行业。"
+                            },
+                            {
+                                title: "竞品对比分析",
+                                content: "请针对[产品A]和[产品B]生成一份详细的竞品分析报告。请从以下维度进行对比：1. 目标用户群体；2. 核心功能差异；3. 定价策略；4. 市场营销手段；5. 用户评价情感分析（基于公开信息）。最后请总结各自的护城河。",
+                                tip: "适合产品经理或市场研究人员。"
+                            },
+                            {
+                                title: "SWOT 战略分析",
+                                content: "请作为一名企业战略顾问，为[公司名称/项目名称]进行SWOT分析。已知背景信息如下：[粘贴背景信息]。请列出内部的优势（Strengths）、劣势（Weaknesses），以及外部的机会（Opportunities）和威胁（Threats），并针对每一项给出具体的战略建议。",
+                                tip: "提供的信息越详细，分析越精准。"
+                            }
+                        ]
+                    },
+                    {
+                        name: "🎓 论文选题与科研助手",
+                        list: [
+                            {
+                                title: "论文选题头脑风暴",
+                                content: "我是[专业名称]专业的研究生，主要研究方向是[具体方向]。目前我正在构思毕业论文选题，请结合近3年的学术热点，为我推荐5个具有研究价值且创新性较强的论文选题。对于每个选题，请说明：1. 题目建议；2. 研究意义；3. 可能用到的研究方法；4. 预期难点。",
+                                tip: "如果不满意，可以要求它“再换个角度生成5个”。"
+                            },
+                            {
+                                title: "学术润色 (Polishing)",
+                                content: "下面这段话是我的论文摘要，请以地道的[具体语言，如：学术英语]风格进行润色。要求：1. 纠正语法错误；2. 提升用词的学术性（使用更精准的动词）；3. 优化句子结构，使其逻辑更连贯，但不要改变原意。\n\n[在此粘贴原文]",
+                                tip: "写英文论文神器，也可以注明目标期刊风格。"
+                            },
+                            {
+                                title: "苏格拉底式导师",
+                                content: "请扮演一位严厉但富有启发性的[专业领域]教授。我提出了一个假设：[输入你的研究假设]。请不要直接告诉我答案，而是通过一系列反问和逻辑漏洞的指出，来挑战我的观点，帮助我完善研究思路。",
+                                tip: "用来在开题答辩前进行模拟演练。"
+                            }
+                        ]
+                    },
+                    {
+                        name: "🌍 日常科普与解释",
+                        list: [
+                            {
+                                title: "费曼学习法 (ELI5)",
+                                content: "请用“费曼学习法”为我解释[输入复杂概念，如：量子纠缠]。要求：1. 把我当成一个12岁的中学生；2. 使用生活中的类比（Analogy）来解释抽象概念；3. 避免使用晦涩的专业术语；4. 最后用一句话总结核心逻辑。",
+                                tip: "Explain Like I'm 5，快速搞懂新概念。"
+                            },
+                            {
+                                title: "高情商回复助手",
+                                content: "场景是：[描述场景，例如：领导要在周末给我安排额外工作，但我已经有安排了]。请帮我生成3个不同委婉程度的回复话术：\n1. 礼貌但坚定地拒绝；\n2. 尝试协商时间；\n3. 略带幽默地拖延。\n要求语气得体，不卑不亢。",
+                                tip: "职场沟通救星。"
+                            }
+                        ]
+                    }
+                ],
+                // --- 历史数据 ---
+                history: [
+                    { year: '2017', title: 'Transformer 诞生', desc: 'Google 团队发表《Attention is All You Need》，提出了 Transformer 架构，彻底改变了 NLP 领域，奠定了现代大模型的基石。' },
+                    { year: '2018', title: 'BERT 与 GPT-1', desc: 'Google 推出 BERT（双向编码），OpenAI 推出 GPT-1（单向预测）。预训练+微调范式开始流行。' },
+                    { year: '2020', title: 'GPT-3 的暴力美学', desc: 'OpenAI 发布 GPT-3，参数量达到 1750 亿。展示了“涌现”能力，Few-shot learning 震惊业界。' },
+                    { year: '2022.11', title: 'ChatGPT 时刻', desc: '基于 GPT-3.5 的对话产品 ChatGPT 发布，RLHF（人类反馈强化学习）让 AI 能够听懂人话，引爆全球 AI 热潮。' },
+                    { year: '2023', title: '百模大战与开源爆发', desc: 'Meta 发布 Llama 系列引领开源复兴；GPT-4 发布展现多模态能力；国内百度文心一言、阿里的通义千问等相继发布。' },
+                    { year: '2024', title: '视频生成与端侧模型', desc: 'Sora 惊艳亮相，多模态理解与生成能力大幅提升。模型开始向“小而美”的端侧设备进军。' }
+                    ],
+                // --- 工具数据 ---
+                tools: [
+                    { name: 'ChatGPT / Claude', category: '对话助手', icon: '💬', bgColor: 'bg-green-100 text-green-600', desc: '目前最强的 AI 对话助手，适合日常问答、代码编写和创意写作。', url: 'https://chat.openai.com' },
+                    { name: 'LangChain', category: '开发框架', icon: '🔗', bgColor: 'bg-orange-100 text-orange-600', desc: '构建 LLM 应用的首选框架，轻松实现 RAG（知识库）和 Agent（智能体）开发。', url: 'https://python.langchain.com/' },
+                    { name: 'Hugging Face', category: '模型社区', icon: '🤗', bgColor: 'bg-yellow-100 text-yellow-600', desc: 'AI 界的 GitHub，海量开源模型（Llama, Mistral）下载与试玩中心。', url: 'https://huggingface.co/' },
+                    { name: 'Coze / 扣子', category: '低代码平台', icon: '⚙️', bgColor: 'bg-purple-100 text-purple-600', desc: '字节跳动推出的 AI Bot 开发平台，无需写代码即可打造这一款专属插件的 Bot。', url: 'https://www.coze.cn/' },
+                    { name: '吴恩达 AI 课程', category: '学习课程', icon: '🎓', bgColor: 'bg-blue-100 text-blue-600', desc: 'DeepLearning.AI 提供的权威入门课程，包含 Prompt Engineering 等。', url: 'https://www.deeplearning.ai/' },
+                    { name: 'Ollama', category: '本地运行', icon: '💻', bgColor: 'bg-slate-200 text-slate-700', desc: '在本地电脑上一键运行 Llama3、Qwen 等开源大模型的极简工具。', url: 'https://ollama.com/' }
+                    ],
+                // --- 资讯数据 ---
+                newsList: [
+                   { id: 1, title: 'GPT-5 预计发布时间推测', summary: '业内传闻 OpenAI 正在训练下一代前沿模型，预计将在推理能力上有重大突破...', date: '2小时前', tag: 'Rumor', tagColor: 'bg-pink-500' },
+                    { id: 2, title: 'Llama 3 发布：开源模型新王者', summary: 'Meta 正式发布 Llama 3，包括 8B 和 70B 版本，基准测试超越多款闭源模型。', date: '昨天', tag: 'OpenSource', tagColor: 'bg-green-500' },
+                    { id: 3, title: 'Google Gemini 1.5 Pro 更新', summary: '上下文窗口扩展至 200万 token，支持超长文本和视频理解。', date: '3天前', tag: 'Product', tagColor: 'bg-blue-500' },
+                    { id: 4, title: '斯坦福发布 2024 AI Index 报告', summary: '全面分析了 AI 在技术性能、经济影响、伦理方面的年度进展。', date: '1周前', tag: 'Report', tagColor: 'bg-indigo-500' }
+                    ]
+            }
+        }
+    </script>
+</body>
+</html>
