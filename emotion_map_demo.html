@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>小红书「情绪地图」MVP Demo</title>
+<style>
+  :root {
+    --primary-red: #FF2442;
+    --bg-color: #F8F8F8;
+    --card-bg: #FFFFFF;
+    --text-main: #333333;
+    --text-sub: #999999;
+    --emo-happy: #FF9500;
+    --emo-angry: #FF3B30;
+    --emo-emo: #007AFF;
+    --emo-calm: #34C759;
+    --emo-tired: #AF52DE;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #d0d0d0;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", STHeiti, "Microsoft Yahei", Tahoma, Simsun, sans-serif;
+  }
+
+  /* 模拟手机容器 */
+  .app-container {
+    width: 390px;
+    height: 844px;
+    background: var(--bg-color);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+    border-radius: 40px;
+    border: 8px solid #222;
+  }
+
+  /* 页面基础样式 */
+  .page {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-color);
+    display: none;
+    flex-direction: column;
+    animation: fadeIn 0.3s ease;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .page.active {
+    display: flex;
+  }
+  .page::-webkit-scrollbar {
+    display: none;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* 顶部导航栏 */
+  .top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 50px 20px 15px;
+    background: var(--card-bg);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .nav-tabs {
+    display: flex;
+    gap: 20px;
+    font-size: 16px;
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+  .nav-tabs .active {
+    color: var(--text-main);
+    font-size: 18px;
+    font-weight: 600;
+    position: relative;
+  }
+  .nav-tabs .active::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 3px;
+    background: var(--primary-red);
+    border-radius: 2px;
+  }
+
+  /* 瀑布流内容区 */
+  .masonry {
+    column-count: 2;
+    column-gap: 10px;
+    padding: 10px;
+    padding-bottom: 80px;
+  }
+  .card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    break-inside: avoid;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    cursor: pointer;
+  }
+  .card img.cover {
+    width: 100%;
+    display: block;
+    object-fit: cover;
+  }
+  .card-info {
+    padding: 10px;
+  }
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-user {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-sub);
+  }
+  .user-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .user-left img {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+  }
+
+  /* 底部Tab栏 */
+  .bottom-tab {
+    position: absolute;      /* 从 fixed 改为 absolute，相对手机框定位 */
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 70px;            /* 从 80px 调整为 70px */
+    background: rgba(255,255,255,0.98);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding-bottom: 15px;    /* 从 20px 调整为 15px */
+    border-top: 1px solid #eee;
+    border-radius: 0 0 32px 32px;  /* 新增：底部圆角匹配手机框 */
+    z-index: 100;
+  }
+  .tab-item {
+    font-size: 16px;
+    color: var(--text-sub);
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .tab-item.active {
+    color: var(--text-main);
+    font-weight: 600;
+  }
+  .tab-add {
+    width: 44px;
+    height: 32px;
+    background: var(--primary-red);
+    color: #fff;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    font-weight: 300;
+  }
+
+  /* 悬浮按钮 */
+  .fab {
+    position: absolute;
+    bottom: 100px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    background: #fff;
+    border: 2px solid var(--primary-red);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    box-shadow: 0 4px 12px rgba(255,36,66,0.3);
+    z-index: 90;
+    cursor: pointer;
+  }
+  .fab-bubble {
+    position: absolute;
+    top: -35px;
+    background: var(--primary-red);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+  .fab-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 4px 4px 0;
+    border-style: solid;
+    border-color: var(--primary-red) transparent transparent transparent;
+  }
+
+  /* 图文笔记页 */
+  .note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 50px 20px 15px;
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .note-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .note-user img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+  }
+  .btn-follow {
+    border: 1px solid var(--primary-red);
+    color: var(--primary-red);
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .note-img-container {
+    position: relative;
+  }
+  .note-img-container img {
+    width: 100%;
+    display: block;
+  }
+  .page-indicator {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(0,0,0,0.4);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 12px;
+  }
+  .note-content {
+    padding: 20px;
+    background: #fff;
+    flex: 1;
+  }
+  .note-text {
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-main);
+    margin-bottom: 15px;
+  }
+  .note-tags {
+    color: #13386c;
+    font-size: 14px;
+  }
+  .note-bottom-bar {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    padding: 10px 20px 30px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border-top: 1px solid #eee;
+  }
+  .input-capsule {
+    flex: 1;
+    background: #f5f5f5;
+    padding: 10px 15px;
+    border-radius: 20px;
+    color: var(--text-sub);
+    font-size: 14px;
+  }
+  .action-icons {
+    display: flex;
+    gap: 15px;
+    font-size: 20px;
+    color: var(--text-main);
+  }
+
+  /* 情绪心动组件 - 横向 */
+  .emotion-bar-horizontal {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(12px);
+    padding: 10px 20px;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    z-index: 20;
+  }
+  .emoji-btn {
+    font-size: 24px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    filter: grayscale(100%);
+    opacity: 0.6;
+  }
+  .emoji-btn.active {
+    filter: grayscale(0%);
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  .heart-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: #f5f5f5;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+    cursor: pointer;
+  }
+  .heart-btn.active {
+    background: rgba(255,36,66,0.1);
+    color: var(--primary-red);
+  }
+
+  /* 视频页 */
+  .video-page {
+    background: #000;
+    color: #fff;
+  }
+  .video-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url(sunset.jpg) center/cover;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .video-info {
+    position: absolute;
+    bottom: 80px;
+    left: 20px;
+    right: 80px;
+    z-index: 10;
+  }
+  .video-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .video-user img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+  }
+  .video-desc {
+    font-size: 15px;
+    line-height: 1.5;
+    margin-bottom: 5px;
+  }
+  
+  /* 情绪心动组件 - 竖向 */
+  .emotion-bar-vertical {
+    position: absolute;
+    bottom: 100px;
+    right: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    z-index: 20;
+  }
+  .emotion-bar-vertical .emoji-btn {
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(10px);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+  }
+  .emotion-bar-vertical .heart-btn {
+    flex-direction: column;
+    background: transparent;
+    color: #fff;
+    padding: 0;
+    gap: 2px;
+  }
+  .emotion-bar-vertical .heart-btn .icon {
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(10px);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+  }
+
+  /* 个人中心页 */
+  .profile-header {
+    height: 200px;
+    background: url('back.jpg') center/cover;
+    position: relative;
+  }
+  .menu-btn {
+    position: absolute;
+    top: 50px;
+    left: 20px;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+  }
+  .profile-info {
+    padding: 0 20px 20px;
+    background: #fff;
+    position: relative;
+    border-radius: 20px 20px 0 0;
+    margin-top: -20px;
+  }
+  .profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 4px solid #fff;
+    margin-top: -40px;
+  }
+  .profile-name {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 10px 0 5px;
+  }
+  .profile-bio {
+    font-size: 13px;
+    color: var(--text-sub);
+    margin-bottom: 15px;
+  }
+  .profile-stats {
+    display: flex;
+    gap: 20px;
+    font-size: 14px;
+  }
+  .profile-stats span {
+    font-weight: 600;
+    color: var(--text-main);
+  }
+  .profile-tabs {
+    display: flex;
+    justify-content: space-around;
+    padding: 15px 0;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+  }
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);  /* 从3列改为2列 */
+    gap: 8px;
+    background: #fff;
+    padding: 10px;
+  }
+  .profile-grid img {
+    width: 100%;
+    aspect-ratio: 3/4;  /* 调整为竖向比例 */
+    object-fit: cover;
+    border-radius: 8px;  /* 添加圆角 */
+  }
+
+  /* 侧边栏 */
+  .sidebar-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .sidebar-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 70%;
+    height: 100%;
+    background: #fff;
+    z-index: 201;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    padding: 60px 20px 20px;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 20px 0;
+    font-size: 16px;
+    color: var(--text-main);
+    border-bottom: 1px solid #f5f5f5;
+    cursor: pointer;
+  }
+  .tag-new {
+    background: var(--primary-red);
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: auto;
+  }
+
+  /* 情绪地图主页 */
+  .emotion-map-page {
+    background: #f9f9f9;
+  }
+  .em-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 50px 20px 15px;
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    font-weight: 600;
+  }
+  .em-intro {
+    padding: 20px;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+  .em-card {
+    background: #fff;
+    margin: 0 15px 15px;
+    border-radius: 16px;
+    padding: 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+  }
+  .em-card-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 15px;
+  }
+  
+  /* 日历 */
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    text-align: center;
+  }
+  .cal-day-name {
+    font-size: 12px;
+    color: var(--text-sub);
+    margin-bottom: 10px;
+  }
+  .cal-cell {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  .cal-cell.has-emo {
+    background: rgba(255,149,0,0.1);
+  }
+  .cal-cell .emo {
+    font-size: 16px;
+    margin-top: 2px;
+  }
+
+  /* 进度条 */
+  .progress-bar {
+    display: flex;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .progress-segment {
+    height: 100%;
+  }
+  .progress-legend {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-sub);
+  }
+
+  /* 气泡卡片 */
+  .bubble-card {
+    background: #f5f8ff;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    color: #333;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .bubble-card::before {
+    content: '✨';
+    position: absolute;
+    left: 10px;
+  }
+  .bubble-card span {
+    padding-left: 20px;
+    display: block;
+  }
+
+  /* 模式选择 */
+  .mode-btns {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    overflow-x: auto;
+  }
+  .mode-btn {
+    padding: 6px 12px;
+    background: #f5f5f5;
+    border-radius: 16px;
+    font-size: 13px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .mode-btn.active {
+    background: rgba(255,36,66,0.1);
+    color: var(--primary-red);
+    border-color: var(--primary-red);
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+  .slider-track {
+    flex: 1;
+    height: 4px;
+    background: #eee;
+    border-radius: 2px;
+    position: relative;
+  }
+  .slider-thumb {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    background: var(--primary-red);
+    border-radius: 50%;
+  }
+
+  /* 地图区 */
+  .map-container {
+    position: relative;
+    margin-bottom: 15px;
+  }
+  .btn-generate {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: var(--primary-red);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 4px 10px rgba(255,36,66,0.3);
+  }
+  .pool-scroll {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+  }
+  .pool-card {
+    min-width: 120px;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #eee;
+  }
+  .pool-card img {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+  }
+  .pool-info {
+    padding: 8px;
+  }
+  .pool-title {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pool-loc {
+    font-size: 10px;
+    color: var(--text-sub);
+  }
+
+  /* Toast */
+  .toast {
+    position: absolute;
+    bottom: 150px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 24px;
+    font-size: 14px;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+  }
+  .toast.show {
+    opacity: 1;
+  }
+
+  /* 底部浮层 */
+  .bottom-sheet {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    padding: 20px;
+    z-index: 300;
+    transform: translateY(100%);
+    transition: transform 0.3s;
+  }
+  .bottom-sheet.open {
+    transform: translateY(0);
+  }
+  .sheet-item {
+    padding: 15px 0;
+    text-align: center;
+    font-size: 16px;
+    border-bottom: 1px solid #eee;
+  }
+
+  .slider-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+  .slider-container input[type="range"] {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #eee;
+    border-radius: 2px;
+    outline: none;
+  }
+  .slider-container input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--primary-red);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .slider-container input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--primary-red);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+  }
+  .slider-value {
+    min-width: 35px;
+    text-align: right;
+    font-weight: 600;
+    color: var(--primary-red);
+  }
+
+</style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- 页面1：首页 -->
+  <div id="home-page" class="page active">
+    <div class="top-nav">
+      <div style="font-size: 20px;cursor:pointer;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+        </svg>
+      </div>
+      <div class="nav-tabs">
+        <span>关注</span>
+        <span class="active">发现</span>
+        <span>广州</span>
+      </div>
+      <div style="font-size: 20px;cursor:pointer;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+      </div>
+    </div>
+    
+    <div class="masonry">
+      <div class="card" onclick="navTo('note-page')">
+        <img class="cover" src="pic-1.jpg" alt="cover">
+        <div class="card-info">
+          <div class="card-title">闲不住艺术专列｜9大看点</div>
+          <div class="card-user">
+            <div class="user-left">
+              <img src="pic-1.jpg" alt="avatar">
+              <span>小红薯123</span>
+            </div>
+            <span>❤️ 2.3w</span>
+          </div>
+        </div>
+      </div>
+      <div class="card" onclick="navTo('note-page')">
+        <img class="cover" src="pic-2.jpg" alt="cover">
+        <div class="card-info">
+          <div class="card-title">小白和小鸡毛</div>
+          <div class="card-user">
+            <div class="user-left">
+              <img src="pic-2.jpg" alt="avatar">
+              <span>小白的故事</span>
+            </div>
+            <span>❤️ 1.8w</span>
+          </div>
+        </div>
+      </div>
+      <div class="card" onclick="navTo('note-page')">
+        <img class="cover" src="coffee.jpg" alt="cover">
+        <div class="card-info">
+          <div class="card-title">下班后的解压好去处</div>
+          <div class="card-user">
+            <div class="user-left">
+              <img src="coffee.jpg" alt="avatar">
+              <span>生活美学家</span>
+            </div>
+            <span>❤️ 9562</span>
+          </div>
+        </div>
+      </div>
+      <div class="card" onclick="navTo('video-page')">
+        <div style="position:relative;">
+          <img class="cover" src="sunset.jpg" alt="cover">
+          <div style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:24px;height:24px;display:flex;justify-content:center;align-items:center;font-size:12px;">▶</div>
+        </div>
+        <div class="card-info">
+          <div class="card-title">超治愈的日落风景｜治愈系</div>
+          <div class="card-user">
+            <div class="user-left">
+              <img src="sunset.jpg" alt="avatar">
+              <span>摄影师小王</span>
+            </div>
+            <span>❤️ 3.2w</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fab" onclick="navTo('emotion-map-page')">
+      🗺️
+      <div class="fab-bubble">情绪地图</div>
+    </div>
+
+    <div class="bottom-tab">
+      <div class="tab-item active">首页</div>
+      <div class="tab-item">市集</div>
+      <div class="tab-add">+</div>
+      <div class="tab-item" style="position:relative;">消息<span style="position:absolute;top:-2px;right:-6px;width:8px;height:8px;background:red;border-radius:50%;"></span></div>
+      <div class="tab-item" onclick="navTo('profile-page')">我</div>
+    </div>
+  </div>
+
+  <!-- 页面2：单条图文笔记页 -->
+  <div id="note-page" class="page">
+    <div class="note-header">
+      <div onclick="navTo('home-page')" style="font-size:20px;cursor:pointer;">←</div>
+      <div class="note-user">
+        <img src="coffee.jpg" alt="avatar">
+        <span style="font-weight:600;font-size:14px;">生活美学家</span>
+      </div>
+      <div style="display:flex;gap:15px;align-items:center;">
+        <div class="btn-follow">关注</div>
+        <div style="font-size:20px;">↗</div>
+      </div>
+    </div>
+    
+    <div class="note-img-container">
+      <img src="coffee.jpg" alt="note img">
+      <div class="page-indicator">1/3</div>
+    </div>
+
+    <div class="note-content">
+      <div class="note-text">
+        终于找到了这家藏在巷子里的宝藏咖啡店☕️<br>
+        氛围感拉满，适合一个人发呆放空...
+      </div>
+      <div class="note-tags">#周末好去处 #咖啡探店 #治愈系</div>
+    </div>
+
+    <!-- 情绪心动组件 -->
+    <div class="emotion-bar-horizontal">
+      <div class="emoji-btn" onclick="selectEmoji(this, '开心')">😄</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, '愤怒')">😡</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, 'Emo')">🌧️</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, '平静')">🍵</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, '疲惫')">🥀</div>
+      <div style="width:1px;height:20px;background:#ddd;margin:0 5px;"></div>
+      <div class="heart-btn" onclick="toggleHeart(this)">💖 心动</div>
+    </div>
+
+    <div class="note-bottom-bar">
+      <div class="input-capsule">说点什么...</div>
+      <div class="action-icons">
+        <span>❤️ 2.3w</span>
+        <span>⭐ 1.2w</span>
+        <span>💬 862</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 页面3：单条视频页 -->
+  <div id="video-page" class="page video-page">
+    <div class="video-bg" onclick="simulateSwipe()">
+      <div style="font-size:60px;opacity:0.5;">▶</div>
+    </div>
+    
+    <div style="position:absolute;top:50px;left:20px;font-size:24px;z-index:10;" onclick="navTo('home-page')">←</div>
+
+    <div class="video-info">
+      <div class="video-user">
+        <img src="sunset.jpg" alt="avatar">
+        <span style="font-weight:600;font-size:15px;">摄影师小王</span>
+        <div class="btn-follow" style="border-color:#fff;color:#fff;">关注</div>
+      </div>
+      <div class="video-desc">日落时分的海边｜超治愈的风景</div>
+      <div style="color:#ddd;font-size:14px;">#治愈系 #风景</div>
+    </div>
+
+    <div class="emotion-bar-vertical">
+      <div class="emoji-btn" onclick="selectEmoji(this, '开心')">😄</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, '愤怒')">😡</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, 'Emo')">🌧️</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, '平静')">🍵</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, '疲惫')">🥀</div>
+      <div class="heart-btn" onclick="toggleHeart(this)">
+        <div class="icon">💖</div>
+        <span style="font-size:12px;">心动</span>
+      </div>
+    </div>
+
+    <div style="position:absolute;bottom:20px;left:20px;right:20px;background:rgba(255,255,255,0.2);padding:10px 15px;border-radius:20px;font-size:14px;backdrop-filter:blur(10px);">
+      说点什么...
+    </div>
+  </div>
+
+  <!-- 页面4：个人中心页 -->
+  <div id="profile-page" class="page">
+    <div class="profile-header">
+      <div class="menu-btn" onclick="toggleSidebar()">☰</div>
+    </div>
+    <div class="profile-info">
+      <img class="profile-avatar" src="profile.jpg" alt="avatar">
+      <div class="profile-name">小红薯用户</div>
+      <div class="profile-bio">分享生活的每一天</div>
+      <div class="profile-stats">
+        <div><span>256</span> 关注</div>
+        <div><span>8.9w</span> 粉丝</div>
+        <div><span>12.3w</span> 获赞与收藏</div>
+      </div>
+    </div>
+    <div class="profile-tabs">
+      <div style="font-weight:600;color:var(--text-main);">笔记</div>
+      <div style="color:var(--text-sub);">收藏</div>
+      <div style="color:var(--text-sub);">赞过</div>
+    </div>
+    <div class="profile-grid">
+      <img src="pic-1.jpg">
+      <img src="pic-2.jpg">
+      <img src="pic-3.jpg">
+      <img src="pic-4.jpg">
+    </div>
+    
+    <div class="bottom-tab">
+      <div class="tab-item" onclick="navTo('home-page')">首页</div>
+      <div class="tab-item">市集</div>
+      <div class="tab-add">+</div>
+      <div class="tab-item">消息</div>
+      <div class="tab-item active">我</div>
+    </div>
+  </div>
+
+  <!-- 页面5：侧边栏 -->
+  <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+  <div id="sidebar" class="sidebar">
+    <div class="menu-item">👤 我的活动</div>
+    <div class="menu-item" onclick="navTo('emotion-map-page'); toggleSidebar();">
+      🗺️ 情绪地图 <span class="tag-new">NEW</span>
+    </div>
+    <div class="menu-item">🛒 我的订单</div>
+    <div class="menu-item">💡 创作中心</div>
+    <div class="menu-item">🕒 浏览记录</div>
+    <div class="menu-item">⚙️ 设置</div>
+  </div>
+
+  <!-- 页面6：情绪地图主页 -->
+  <div id="emotion-map-page" class="page emotion-map-page">
+    <div class="em-header">
+      <div onclick="navTo('home-page')" style="font-size:20px;cursor:pointer;">←</div>
+      <div>情绪地图</div>
+      <div style="font-size:20px;">↗</div>
+    </div>
+    
+    <div class="em-intro">今天的心情，也可以成为周末的路线。</div>
+
+    <!-- 模块1：情绪日历 -->
+    <div class="em-card">
+      <div class="em-card-title">
+        <span>📅 情绪日历</span>
+        <span style="color:var(--text-sub);font-size:13px;font-weight:normal;cursor:pointer;" onclick="openMonthSelector()">2026年5月 ▾</span>
+      </div>
+      <div class="calendar-grid">
+        <div class="cal-day-name">一</div><div class="cal-day-name">二</div><div class="cal-day-name">三</div><div class="cal-day-name">四</div><div class="cal-day-name">五</div><div class="cal-day-name">六</div><div class="cal-day-name">日</div>
+        
+        <div class="cal-cell has-emo">1<div class="emo">😄</div></div>
+        <div class="cal-cell has-emo" style="background:rgba(175,82,222,0.1);">2<div class="emo">🥀</div></div>
+        <div class="cal-cell has-emo" style="background:rgba(0,122,255,0.1);">3<div class="emo">🌧️</div></div>
+        <div class="cal-cell has-emo" style="background:rgba(52,199,89,0.1);">4<div class="emo">🍵</div></div>
+        <div class="cal-cell has-emo" style="background:rgba(255,59,48,0.1);">5<div class="emo">😡</div></div>
+        <div class="cal-cell has-emo">6<div class="emo">😄</div></div>
+        <div class="cal-cell has-emo" style="background:rgba(0,122,255,0.1);">7<div class="emo">🌧️</div></div>
+      </div>
+    </div>
+
+    <!-- 模块2：情绪反光板 -->
+    <div class="em-card">
+      <div class="em-card-title">📊 你的情绪看板（近7天）</div>
+      <div class="progress-bar">
+        <div class="progress-segment" style="width:62%;background:#FF6B81;"></div>
+        <div class="progress-segment" style="width:18%;background:#70A1FF;"></div>
+        <div class="progress-segment" style="width:12%;background:#FFA502;"></div>
+        <div class="progress-segment" style="width:8%;background:#CED6E0;"></div>
+      </div>
+      <div class="progress-legend">
+        <span>治愈类 62%</span>
+        <span>旅游类 18%</span>
+        <span>兴趣类 12%</span>
+        <span>其他 8%</span>
+      </div>
+    </div>
+
+    <div class="em-card">
+      <div class="em-card-title">🎯 算法在做什么</div>
+      <div class="bubble-card">
+        <span>因为你选择了 3 次「emo」，系统为你推送了 47 条治愈内容。</span>
+      </div>
+      <div class="bubble-card">
+        <span>因为你心动了 2 条旅行笔记，系统给你推了 23 条周边游灵感。</span>
+      </div>
+      <div style="font-size:12px;color:var(--text-sub);margin-top:10px;">你可以随时调整推荐方向，避免一直困在同一种内容里。</div>
+    </div>
+
+    <div class="em-card">
+      <div class="em-card-title">💡 你可以做的选择</div>
+      <div class="mode-btns">
+        <div class="mode-btn active" onclick="selectMode(this, 'balanced')">均衡模式</div>
+        <div class="mode-btn" onclick="selectMode(this, 'healing')">治愈优先</div>
+        <div class="mode-btn" onclick="selectMode(this, 'explore')">探索模式</div>
+      </div>
+      <div class="slider-row">
+        <span style="width:30px;">治愈</span>
+        <div class="slider-track"><div class="slider-thumb" style="left:30%;"></div></div>
+        <span style="width:30px;text-align:right;">30%</span>
+      </div>
+      <div class="slider-row">
+        <span style="width:30px;">旅游</span>
+        <div class="slider-track"><div class="slider-thumb" style="left:30%;"></div></div>
+        <span style="width:30px;text-align:right;">30%</span>
+      </div>
+      <div class="slider-row">
+        <span style="width:30px;">兴趣</span>
+        <div class="slider-track"><div class="slider-thumb" style="left:30%;"></div></div>
+        <span style="width:30px;text-align:right;">30%</span>
+      </div>
+    </div>
+
+    <!-- 模块3：情绪旅游地图 -->
+    <div class="em-card" style="margin-bottom:40px;">
+      <div class="em-card-title" style="margin-bottom:5px;">🗺️ 情绪旅游地图</div>
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:15px;">拖拽你的心动笔记，生成周末路线</div>
+      
+      <div class="map-container">
+        <svg viewBox="0 0 300 180" style="width:100%; height:180px; background:#f0f0f0; border-radius:12px;">
+          <path d="M0,40 Q150,70 300,20 L300,180 L0,180 Z" fill="#e0f0ff"/>
+          <path d="M40,0 L70,180" stroke="#fff0b3" stroke-width="8" fill="none"/>
+          <path d="M0,100 L300,80" stroke="#fff0b3" stroke-width="8" fill="none"/>
+          
+          <path d="M70,50 L160,90 L230,130" stroke="#FF2442" stroke-width="2" stroke-dasharray="4,4" fill="none"/>
+          
+          <circle cx="70" cy="50" r="6" fill="#FF2442"/>
+          <text x="80" y="54" font-size="12" fill="#333" font-weight="bold">1️⃣ 咖啡店</text>
+          
+          <circle cx="160" cy="90" r="6" fill="#FF2442"/>
+          <text x="170" y="94" font-size="12" fill="#333" font-weight="bold">2️⃣ 展览馆</text>
+          
+          <circle cx="230" cy="130" r="6" fill="#FF2442"/>
+          <text x="240" y="134" font-size="12" fill="#333" font-weight="bold">3️⃣ 公园</text>
+        </svg>
+        <div class="btn-generate" onclick="showToast('路线生成中...')">一键生成路线</div>
+      </div>
+
+      <div class="pool-scroll">
+        <div class="pool-card">
+          <img src="coffee.jpg">
+          <div class="pool-info">
+            <div class="pool-title">周末治愈咖啡店</div>
+            <div class="pool-loc">📍 上海·武康路</div>
+          </div>
+        </div>
+        <div class="pool-card">
+          <img src="zhanlan.jpg">
+          <div class="pool-info">
+            <div class="pool-title">下班后的小众展览</div>
+            <div class="pool-loc">📍 北京·798</div>
+          </div>
+        </div>
+        <div class="pool-card">
+          <img src="ersha.jpg">
+          <div class="pool-info">
+            <div class="pool-title">适合一个人散步的公园</div>
+            <div class="pool-loc">📍 广州·二沙岛</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 全局组件 -->
+  <div id="toast" class="toast">提示信息</div>
+  
+  <div id="month-sheet-overlay" class="sidebar-overlay" onclick="closeMonthSelector()"></div>
+  <div id="month-sheet" class="bottom-sheet">
+    <div style="font-weight:600;text-align:center;margin-bottom:15px;">选择月份</div>
+    <div class="sheet-item" onclick="closeMonthSelector()">2026年5月</div>
+    <div class="sheet-item" onclick="closeMonthSelector()">2026年4月</div>
+    <div class="sheet-item" onclick="closeMonthSelector()">2026年3月</div>
+    <div class="sheet-item" style="border:none;color:var(--text-sub);" onclick="closeMonthSelector()">取消</div>
+  </div>
+
+</div>
+
+<script>
+  // 页面导航
+  function navTo(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+    // 滚动到顶部
+    document.getElementById(pageId).scrollTop = 0;
+  }
+
+  // Toast提示
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.innerText = msg;
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 2000);
+  }
+
+  // 侧边栏
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebar-overlay').classList.toggle('open');
+  }
+
+  // 情绪选择
+  function selectEmoji(el, emotion) {
+    const parent = el.parentElement;
+    parent.querySelectorAll('.emoji-btn').forEach(btn => btn.classList.remove('active'));
+    el.classList.add('active');
+    showToast(`已记录当前心情：${emotion}`);
+  }
+
+  // 心动按钮
+  function toggleHeart(el) {
+    el.classList.toggle('active');
+    if(el.classList.contains('active')) {
+      showToast('已加入情绪旅游地图');
+    }
+  }
+
+  // 模拟视频上滑
+  function simulateSwipe() {
+    showToast('切换到下一个视频');
+    const bg = document.querySelector('.video-bg');
+    bg.style.background = `linear-gradient(45deg, #${Math.floor(Math.random()*16777215).toString(16)}, #${Math.floor(Math.random()*16777215).toString(16)})`;
+  }
+
+  // 月份选择器
+  function openMonthSelector() {
+    document.getElementById('month-sheet').classList.add('open');
+    document.getElementById('month-sheet-overlay').classList.add('open');
+  }
+  function closeMonthSelector() {
+    document.getElementById('month-sheet').classList.remove('open');
+    document.getElementById('month-sheet-overlay').classList.remove('open');
+  }
+
+  function selectMode(btn, mode) {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    if (mode === 'balanced') {
+      document.getElementById('slider-healing').value = 30;
+      document.getElementById('slider-travel').value = 30;
+      document.getElementById('slider-interest').value = 30;
+      updateSlider('healing', 30);
+      updateSlider('travel', 30);
+      updateSlider('interest', 30);
+    } else if (mode === 'healing') {
+      document.getElementById('slider-healing').value = 60;
+      document.getElementById('slider-travel').value = 20;
+      document.getElementById('slider-interest').value = 15;
+      updateSlider('healing', 60);
+      updateSlider('travel', 20);
+      updateSlider('interest', 15);
+    } else if (mode === 'explore') {
+      document.getElementById('slider-healing').value = 25;
+      document.getElementById('slider-travel').value = 25;
+      document.getElementById('slider-interest').value = 25;
+      updateSlider('healing', 25);
+      updateSlider('travel', 25);
+      updateSlider('interest', 25);
+    }
+  }
+
+  function updateSlider(type, value) {
+    document.getElementById('value-' + type).textContent = value + '%';
+  }
+
+</script>
+
+</body>
+</html>
