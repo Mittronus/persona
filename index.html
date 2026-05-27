@@ -1,271 +1,1394 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LLM Starter - 大模型入门助手</title>
-    <!-- 引入 Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 Alpine.js -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <!-- 引入 Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        [x-cloak] { display: none !important; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>小红书「情绪地图」MVP Demo</title>
+<style>
+  :root {
+    --primary-red: #FF2442;
+    --bg-color: #F8F8F8;
+    --card-bg: #FFFFFF;
+    --text-main: #333333;
+    --text-sub: #999999;
+    --emo-happy: #FF9500;
+    --emo-angry: #FF3B30;
+    --emo-emo: #007AFF;
+    --emo-calm: #34C759;
+    --emo-tired: #AF52DE;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #d0d0d0;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", STHeiti, "Microsoft Yahei", Tahoma, Simsun, sans-serif;
+  }
+
+  /* 模拟手机容器 */
+  .app-container {
+    width: 390px;
+    height: 844px;
+    background: var(--bg-color);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+    border-radius: 40px;
+    border: 8px solid #222;
+  }
+
+  /* 页面基础样式 */
+  .page {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-color);
+    display: none;
+    flex-direction: column;
+    animation: fadeIn 0.3s ease;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .page.active {
+    display: flex;
+  }
+  .page::-webkit-scrollbar {
+    display: none;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* 顶部导航栏 */
+  .top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 50px 20px 15px;
+    background: var(--card-bg);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .nav-tabs {
+    display: flex;
+    gap: 20px;
+    font-size: 16px;
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+  .nav-tabs .active {
+    color: var(--text-main);
+    font-size: 18px;
+    font-weight: 600;
+    position: relative;
+  }
+  .nav-tabs .active::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 3px;
+    background: var(--primary-red);
+    border-radius: 2px;
+  }
+
+  /* 瀑布流内容区 */
+  .masonry {
+    column-count: 2;
+    column-gap: 10px;
+    padding: 10px;
+    padding-bottom: 80px;
+  }
+  .card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    break-inside: avoid;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    cursor: pointer;
+  }
+  .card img.cover {
+    width: 100%;
+    display: block;
+    object-fit: cover;
+  }
+  .card-info {
+    padding: 10px;
+  }
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-user {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-sub);
+  }
+  .user-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .user-left img {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+  }
+
+  /* 底部Tab栏 */
+  .bottom-tab {
+    position: absolute;      /* 从 fixed 改为 absolute，相对手机框定位 */
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 70px;            /* 从 80px 调整为 70px */
+    background: rgba(255,255,255,0.98);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding-bottom: 15px;    /* 从 20px 调整为 15px */
+    border-top: 1px solid #eee;
+    border-radius: 0 0 32px 32px;  /* 新增：底部圆角匹配手机框 */
+    z-index: 100;
+  }
+  .tab-item {
+    font-size: 16px;
+    color: var(--text-sub);
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .tab-item.active {
+    color: var(--text-main);
+    font-weight: 600;
+  }
+  .tab-add {
+    width: 44px;
+    height: 32px;
+    background: var(--primary-red);
+    color: #fff;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    font-weight: 300;
+  }
+
+  /* 悬浮按钮 */
+  .fab {
+    position: absolute;
+    bottom: 100px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    background: #fff;
+    border: 2px solid var(--primary-red);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    box-shadow: 0 4px 12px rgba(255,36,66,0.3);
+    z-index: 90;
+    cursor: pointer;
+  }
+  .fab-bubble {
+    position: absolute;
+    top: -35px;
+    background: var(--primary-red);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+  .fab-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 4px 4px 0;
+    border-style: solid;
+    border-color: var(--primary-red) transparent transparent transparent;
+  }
+
+  /* 图文笔记页 */
+  .note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 50px 20px 15px;
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .note-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .note-user img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+  }
+  .btn-follow {
+    border: 1px solid var(--primary-red);
+    color: var(--primary-red);
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .note-img-container {
+    position: relative;
+  }
+  .note-img-container img {
+    width: 100%;
+    display: block;
+  }
+  .page-indicator {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(0,0,0,0.4);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 12px;
+  }
+  .note-content {
+    padding: 20px;
+    background: #fff;
+    flex: 1;
+  }
+  .note-text {
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-main);
+    margin-bottom: 15px;
+  }
+  .note-tags {
+    color: #13386c;
+    font-size: 14px;
+  }
+  .note-bottom-bar {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    padding: 10px 20px 30px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border-top: 1px solid #eee;
+  }
+  .input-capsule {
+    flex: 1;
+    background: #f5f5f5;
+    padding: 8px 12px;
+    border-radius: 20px;
+    color: var(--text-sub);
+    font-size: 12px;
+  }
+  .action-icons {
+    display: flex;
+    gap: 15px;
+    font-size: 20px;
+    color: var(--text-main);
+  }
+
+  /* 情绪心动组件 - 横向 */
+  .emotion-bar-horizontal {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(12px);
+    padding: 8px 12px;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    z-index: 20;
+    white-space: nowrap;    /* 新增：防止换行 */
+  }
+  .emoji-btn {
+    font-size: 18px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    filter: grayscale(100%);
+    opacity: 0.6;
+  }
+  .emoji-btn.active {
+    filter: grayscale(0%);
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  .heart-btn {
+    display: flex;
+    flex-direction: row;    /* 原无 → 改为横向排列 */
+    align-items: center;
+    gap: 5px;
+    background: #f5f5f5;
+    padding: 5px 10px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;    /* 新增：防止换行 */
+    color: var(--text-main);
+    cursor: pointer;
+  }
+  .heart-btn.active {
+    background: rgba(255,36,66,0.1);
+    color: var(--primary-red);
+  }
+
+  /* 视频页 */
+  .video-page {
+    background: #000;
+    color: #fff;
+  }
+
+  /* 新增：视频容器样式 */
+  .video-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .video-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.3s ease;  /* 切换动画 */
+  }
+
+  .video-info {
+    position: absolute;
+    bottom: 80px;
+    left: 20px;
+    right: 80px;
+    z-index: 10;
+  }
+  .video-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .video-user img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+  }
+  .video-desc {
+    font-size: 15px;
+    line-height: 1.5;
+    margin-bottom: 5px;
+  }
+  
+  /* 情绪心动组件 - 竖向 */
+  .emotion-bar-vertical {
+    position: absolute;
+    bottom: 100px;
+    right: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    z-index: 20;
+  }
+  .emotion-bar-vertical .emoji-btn {
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(10px);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+  }
+  .emotion-bar-vertical .heart-btn {
+    flex-direction: column;
+    background: transparent;
+    color: #fff;
+    padding: 0;
+    gap: 2px;
+  }
+  .emotion-bar-vertical .heart-btn .icon {
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(10px);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+  }
+
+  /* 个人中心页 */
+  .profile-header {
+    height: 200px;
+    background: url('back.jpg') center/cover;
+    position: relative;
+  }
+  .menu-btn {
+    position: absolute;
+    top: 50px;
+    left: 20px;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+  }
+  .profile-info {
+    padding: 0 20px 20px;
+    background: #fff;
+    position: relative;
+    border-radius: 20px 20px 0 0;
+    margin-top: -20px;
+  }
+  .profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 4px solid #fff;
+    margin-top: -40px;
+  }
+  .profile-name {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 10px 0 5px;
+  }
+  .profile-bio {
+    font-size: 13px;
+    color: var(--text-sub);
+    margin-bottom: 15px;
+  }
+  .profile-stats {
+    display: flex;
+    gap: 20px;
+    font-size: 14px;
+  }
+  .profile-stats span {
+    font-weight: 600;
+    color: var(--text-main);
+  }
+  .profile-tabs {
+    display: flex;
+    justify-content: space-around;
+    padding: 15px 0;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+  }
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);  /* 从3列改为2列 */
+    gap: 8px;
+    background: #fff;
+    padding: 10px;
+  }
+  .profile-grid img {
+    width: 100%;
+    aspect-ratio: 3/4;  /* 调整为竖向比例 */
+    object-fit: cover;
+    border-radius: 8px;  /* 添加圆角 */
+  }
+
+  /* 侧边栏 */
+  .sidebar-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .sidebar-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 70%;
+    height: 100%;
+    background: #fff;
+    z-index: 201;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    padding: 60px 20px 20px;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 20px 0;
+    font-size: 16px;
+    color: var(--text-main);
+    border-bottom: 1px solid #f5f5f5;
+    cursor: pointer;
+  }
+  .tag-new {
+    background: var(--primary-red);
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: auto;
+  }
+
+  /* 情绪地图主页 */
+  .emotion-map-page {
+    background: #f9f9f9;
+  }
+  .em-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 50px 20px 15px;
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    font-weight: 600;
+  }
+  .em-intro {
+    padding: 20px;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+  .em-card {
+    background: #fff;
+    margin: 0 15px 15px;
+    border-radius: 16px;
+    padding: 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+  }
+  .em-card-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 15px;
+  }
+  
+  /* 日历 */
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    text-align: center;
+  }
+  .cal-day-name {
+    font-size: 12px;
+    color: var(--text-sub);
+    margin-bottom: 10px;
+  }
+  .cal-cell {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  .cal-cell.has-emo {
+    background: rgba(255,149,0,0.1);
+  }
+  .cal-cell .emo {
+    font-size: 16px;
+    margin-top: 2px;
+  }
+
+  /* 进度条 */
+  .progress-bar {
+    display: flex;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .progress-segment {
+    height: 100%;
+  }
+  .progress-legend {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-sub);
+  }
+
+  /* 气泡卡片 */
+  .bubble-card {
+    background: #f5f8ff;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    color: #333;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .bubble-card::before {
+    content: '✨';
+    position: absolute;
+    left: 10px;
+  }
+  .bubble-card span {
+    padding-left: 20px;
+    display: block;
+  }
+
+  /* 模式选择 */
+  .mode-btns {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    overflow-x: auto;
+  }
+  .mode-btn {
+    padding: 6px 12px;
+    background: #f5f5f5;
+    border-radius: 16px;
+    font-size: 13px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .mode-btn.active {
+    background: rgba(255,36,66,0.1);
+    color: var(--primary-red);
+    border-color: var(--primary-red);
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+  .slider-track {
+    flex: 1;
+    height: 4px;
+    background: #eee;
+    border-radius: 2px;
+    position: relative;
+  }
+  .slider-thumb {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    background: var(--primary-red);
+    border-radius: 50%;
+  }
+
+  /* 地图区 */
+  .map-container {
+    position: relative;
+    margin-bottom: 15px;
+  }
+  .btn-generate {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: var(--primary-red);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 4px 10px rgba(255,36,66,0.3);
+  }
+  .pool-scroll {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+  }
+  .pool-card {
+    min-width: 120px;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #eee;
+  }
+  .pool-card img {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+  }
+  .pool-info {
+    padding: 8px;
+  }
+  .pool-title {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pool-loc {
+    font-size: 10px;
+    color: var(--text-sub);
+  }
+
+  /* Toast */
+  .toast {
+    position: absolute;
+    bottom: 150px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 24px;
+    font-size: 14px;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+  }
+  .toast.show {
+    opacity: 1;
+  }
+
+  /* 底部浮层 */
+  .bottom-sheet {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    padding: 20px;
+    z-index: 300;
+    transform: translateY(100%);
+    transition: transform 0.3s;
+  }
+  .bottom-sheet.open {
+    transform: translateY(0);
+  }
+  .sheet-item {
+    padding: 15px 0;
+    text-align: center;
+    font-size: 16px;
+    border-bottom: 1px solid #eee;
+  }
+
+  .slider-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+  .slider-container input[type="range"] {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #eee;
+    border-radius: 2px;
+    outline: none;
+  }
+  .slider-container input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--primary-red);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .slider-container input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--primary-red);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+  }
+  .slider-value {
+    min-width: 35px;
+    text-align: right;
+    font-weight: 600;
+    color: var(--primary-red);
+  }
+
+</style>
 </head>
-<body class="bg-slate-50 text-slate-800" x-data="appData()">
+<body>
 
-    <!-- 顶部导航栏 -->
-    <nav class="bg-white shadow-sm sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <span class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-                        🤖 LLM Starter
-                    </span>
-                </div>
-                <!-- 导航按钮 -->
-                <div class="flex space-x-4 sm:space-x-8 items-center overflow-x-auto">
-                    <template x-for="tab in tabs" :key="tab.id">
-                        <button
-                            @click="currentTab = tab.id"
-                            :class="currentTab === tab.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                            class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition duration-150 ease-in-out h-full focus:outline-none whitespace-nowrap"
-                            x-text="tab.name"
-                        ></button>
-                    </template>
-                </div>
+<div class="app-container">
+
+  <!-- 页面1：首页 -->
+  <div id="home-page" class="page active">
+    <div class="top-nav">
+      <div style="font-size: 20px;cursor:pointer;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+        </svg>
+      </div>
+      <div class="nav-tabs">
+        <span>关注</span>
+        <span class="active">发现</span>
+        <span>广州</span>
+      </div>
+      <div style="font-size: 20px;cursor:pointer;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+      </div>
+    </div>
+    
+    <div class="masonry">
+      <div class="card" onclick="navTo('note-page')">
+        <img class="cover" src="pic-1.jpg" alt="cover">
+        <div class="card-info">
+          <div class="card-title">闲不住艺术专列｜9大看点</div>
+          <div class="card-user">
+            <div class="user-left">
+              <img src="pic-1.jpg" alt="avatar">
+              <span>小红薯123</span>
             </div>
+            <span>❤️ 2.3w</span>
+          </div>
         </div>
-    </nav>
-
-    <!-- 主内容区 -->
-    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen">
-
-        <!-- 1. 发展简史板块 -->
-        <div x-show="currentTab === 'history'" x-transition.opacity.duration.300ms>
-            <h2 class="text-3xl font-bold mb-8 text-slate-900">大模型发展简史</h2>
-            <div class="relative border-l-4 border-blue-200 ml-3 space-y-8">
-                <template x-for="item in history" :key="item.year">
-                    <div class="mb-8 ml-6 group">
-                        <span class="absolute -left-3 flex items-center justify-center w-6 h-6 bg-blue-500 rounded-full ring-4 ring-white">
-                            <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
-                        </span>
-                        <div class="p-5 bg-white rounded-lg shadow-sm hover:shadow-md transition border border-slate-100">
-                            <div class="flex items-baseline justify-between">
-                                <h3 class="text-xl font-bold text-slate-800" x-text="item.title"></h3>
-                                <span class="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded" x-text="item.year"></span>
-                            </div>
-                            <p class="mt-2 text-slate-600 leading-relaxed" x-text="item.desc"></p>
-                        </div>
-                    </div>
-                </template>
+      </div>
+      <div class="card" onclick="navTo('note-page')">
+        <img class="cover" src="pic-2.jpg" alt="cover">
+        <div class="card-info">
+          <div class="card-title">小白和小鸡毛</div>
+          <div class="card-user">
+            <div class="user-left">
+              <img src="pic-2.jpg" alt="avatar">
+              <span>小白的故事</span>
             </div>
+            <span>❤️ 1.8w</span>
+          </div>
         </div>
-
-        <!-- 2. 学习工具板块 -->
-        <div x-show="currentTab === 'tools'" x-transition.opacity.duration.300ms style="display: none;">
-            <h2 class="text-3xl font-bold mb-2 text-slate-900">学习工具箱</h2>
-            <p class="mb-8 text-slate-500">工欲善其事，必先利其器。</p>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <template x-for="tool in tools" :key="tool.name">
-                    <a :href="tool.url" target="_blank" class="block p-6 bg-white rounded-xl shadow-sm hover:shadow-lg transition border border-slate-100 group">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-2 rounded-lg" :class="tool.bgColor">
-                                <span class="text-xl" x-text="tool.icon"></span>
-                            </div>
-                            <span class="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-500" x-text="tool.category"></span>
-                        </div>
-                        <h3 class="text-lg font-bold text-slate-800 group-hover:text-blue-600 transition" x-text="tool.name"></h3>
-                        <p class="mt-2 text-sm text-slate-500" x-text="tool.desc"></p>
-                    </a>
-                </template>
+      </div>
+      <div class="card" onclick="navTo('note-page')">
+        <img class="cover" src="coffee.jpg" alt="cover">
+        <div class="card-info">
+          <div class="card-title">下班后的解压好去处</div>
+          <div class="card-user">
+            <div class="user-left">
+              <img src="coffee.jpg" alt="avatar">
+              <span>生活美学家</span>
             </div>
+            <span>❤️ 9562</span>
+          </div>
         </div>
-
-        <!-- 3. [新增] 提示词库板块 -->
-        <div x-show="currentTab === 'prompts'" x-transition.opacity.duration.300ms style="display: none;">
-            <div class="mb-8">
-                <h2 class="text-3xl font-bold text-slate-900">提示词（Prompt）宝库</h2>
-                <p class="mt-2 text-slate-500">复制即用的高质量指令，助你激发大模型潜能。</p>
+      </div>
+      <div class="card" onclick="navTo('video-page')">
+        <div style="position:relative;">
+          <img class="cover" src="sunset.jpg" alt="cover">
+          <div style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:24px;height:24px;display:flex;justify-content:center;align-items:center;font-size:12px;">▶</div>
+        </div>
+        <div class="card-info">
+          <div class="card-title">超治愈的日落风景｜治愈系</div>
+          <div class="card-user">
+            <div class="user-left">
+              <img src="sunset.jpg" alt="avatar">
+              <span>摄影师小王</span>
             </div>
-
-            <!-- 分类循环 -->
-            <template x-for="category in promptCategories" :key="category.name">
-                <div class="mb-10">
-                    <h3 class="flex items-center text-xl font-bold text-slate-800 mb-4 border-l-4 border-indigo-500 pl-3">
-                        <span x-text="category.name"></span>
-                        <span class="ml-2 text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full" x-text="category.list.length + '个'"></span>
-                    </h3>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- 卡片循环 -->
-                        <template x-for="prompt in category.list" :key="prompt.title">
-                            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col h-full hover:border-indigo-300 transition" x-data="{ copied: false }">
-                                <div class="flex justify-between items-start mb-3">
-                                    <h4 class="font-bold text-slate-700" x-text="prompt.title"></h4>
-                                    <!-- 复制按钮 -->
-                                    <button
-                                        @click="navigator.clipboard.writeText(prompt.content); copied = true; setTimeout(() => copied = false, 2000)"
-                                        class="flex items-center text-xs px-2 py-1 rounded border transition-colors duration-200"
-                                        :class="copied ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'"
-                                    >
-                                        <span x-show="!copied" class="flex items-center">
-                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                                            复制
-                                        </span>
-                                        <span x-show="copied" class="flex items-center" x-cloak>
-                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                                            已复制
-                                        </span>
-                                    </button>
-                                </div>
-                                <!-- Prompt 内容展示区 -->
-                                <div class="relative bg-slate-50 rounded p-3 text-sm text-slate-600 font-mono flex-grow border border-slate-100">
-                                    <p class="line-clamp-4 whitespace-pre-wrap" x-text="prompt.content"></p>
-                                    <div class="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 to-transparent"></div>
-                                </div>
-                                <p class="mt-3 text-xs text-slate-400 italic" x-text="prompt.tip ? '💡 ' + prompt.tip : ''"></p>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </template>
+            <span>❤️ 3.2w</span>
+          </div>
         </div>
+      </div>
+    </div>
 
-        <!-- 4. 资讯板块 -->
-        <div x-show="currentTab === 'news'" x-transition.opacity.duration.300ms style="display: none;">
-            <div class="flex justify-between items-end mb-8">
-                <div>
-                    <h2 class="text-3xl font-bold text-slate-900">前沿资讯</h2>
-                </div>
-            </div>
-            <div class="space-y-4">
-                <template x-for="news in newsList" :key="news.id">
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-50 transition cursor-pointer">
-                        <div>
-                            <div class="flex items-center gap-2 mb-2">
-                                <span class="px-2 py-0.5 rounded text-xs font-bold text-white" :class="news.tagColor" x-text="news.tag"></span>
-                                <span class="text-xs text-slate-400" x-text="news.date"></span>
-                            </div>
-                            <h3 class="text-lg font-semibold text-slate-800" x-text="news.title"></h3>
-                            <p class="text-sm text-slate-500 mt-1" x-text="news.summary"></p>
-                        </div>
-                    </div>
-                </template>
-            </div>
+    <div class="fab" onclick="navTo('emotion-map-page')">
+      🗺️
+      <div class="fab-bubble">情绪地图</div>
+    </div>
+
+    <div class="bottom-tab">
+      <div class="tab-item active">首页</div>
+      <div class="tab-item">市集</div>
+      <div class="tab-add">+</div>
+      <div class="tab-item" style="position:relative;">消息<span style="position:absolute;top:-2px;right:-6px;width:8px;height:8px;background:red;border-radius:50%;"></span></div>
+      <div class="tab-item" onclick="navTo('profile-page')">我</div>
+    </div>
+  </div>
+
+  <!-- 页面2：单条图文笔记页 -->
+  <div id="note-page" class="page">
+    <div class="note-header">
+      <div onclick="navTo('home-page')" style="font-size:20px;cursor:pointer;">←</div>
+      <div class="note-user">
+        <img src="coffee.jpg" alt="avatar">
+        <span style="font-weight:600;font-size:14px;">生活美学家</span>
+      </div>
+      <div style="display:flex;gap:15px;align-items:center;">
+        <div class="btn-follow">关注</div>
+        <div style="font-size:20px;">↗</div>
+      </div>
+    </div>
+    
+    <div class="note-img-container">
+      <img src="coffee.jpg" alt="note img">
+      <div class="page-indicator">1/3</div>
+    </div>
+
+    <div class="note-content">
+      <div class="note-text">
+        终于找到了这家藏在巷子里的宝藏咖啡店☕️<br>
+        氛围感拉满，适合一个人发呆放空...
+      </div>
+      <div class="note-tags">#周末好去处 #咖啡探店 #治愈系</div>
+    </div>
+
+    <!-- 情绪心动组件 -->
+    <div class="emotion-bar-horizontal">
+      <div class="emoji-btn" onclick="selectEmoji(this, '开心')">😄</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, '愤怒')">😡</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, 'Emo')">🌧️</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, '平静')">🍵</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, '疲惫')">🥀</div>
+      <div style="width:1px;height:20px;background:#ddd;margin:0 5px;"></div>
+      <div class="heart-btn" onclick="toggleHeart(this)">💖 心动</div>
+    </div>
+
+    <div class="note-bottom-bar">
+      <div class="input-capsule">说点什么...</div>
+      <div class="action-icons">
+        <span>❤️ 2.3w</span>
+        <span>⭐ 1.2w</span>
+        <span>💬 862</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 页面3：单条视频页 -->
+  <div id="video-page" class="page video-page">
+    <!-- 新增：视频容器，用于滑动检测 -->
+    <div class="video-container" id="videoContainer">
+    <img class="video-bg" id="videoBg" src="sunset.jpg" alt="视频封面">
+      <div style="font-size:60px;opacity:0.5;">▶</div>
+    
+    <div style="position:absolute;top:50px;left:20px;font-size:24px;z-index:10;" onclick="navTo('home-page')">←</div>
+
+    <div class="video-info">
+      <div class="video-user">
+        <img src="sunset.jpg" alt="avatar">
+        <span style="font-weight:600;font-size:15px;">摄影师小王</span>
+        <div class="btn-follow" style="border-color:#fff;color:#fff;">关注</div>
+      </div>
+      <div class="video-desc">日落时分的海边｜超治愈的风景</div>
+      <div style="color:#ddd;font-size:14px;">#治愈系 #风景</div>
+    </div>
+
+    <div class="emotion-bar-vertical">
+      <div class="emoji-btn" onclick="selectEmoji(this, '开心')">😄</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, '愤怒')">😡</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, 'Emo')">🌧️</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, '平静')">🍵</div>
+      <div class="emoji-btn" onclick="selectEmoji(this, '疲惫')">🥀</div>
+      <div class="heart-btn" onclick="toggleHeart(this)">
+        <div class="icon">💖</div>
+        <span style="font-size:12px;">心动</span>
+      </div>
+    </div>
+
+    <div style="position:absolute;bottom:20px;left:20px;right:20px;background:rgba(255,255,255,0.2);padding:10px 15px;border-radius:20px;font-size:14px;backdrop-filter:blur(10px);">
+      说点什么...
+    </div>
+    </div>
+  </div>
+
+  <!-- 页面4：个人中心页 -->
+  <div id="profile-page" class="page">
+    <div class="profile-header">
+      <div class="menu-btn" onclick="toggleSidebar()">☰</div>
+    </div>
+    <div class="profile-info">
+      <img class="profile-avatar" src="profile.jpg" alt="avatar">
+      <div class="profile-name">小红薯用户</div>
+      <div class="profile-bio">分享生活的每一天</div>
+      <div class="profile-stats">
+        <div><span>256</span> 关注</div>
+        <div><span>8.9w</span> 粉丝</div>
+        <div><span>12.3w</span> 获赞与收藏</div>
+      </div>
+    </div>
+    <div class="profile-tabs">
+      <div style="font-weight:600;color:var(--text-main);">笔记</div>
+      <div style="color:var(--text-sub);">收藏</div>
+      <div style="color:var(--text-sub);">赞过</div>
+    </div>
+    <div class="profile-grid">
+      <img src="pic-1.jpg">
+      <img src="pic-2.jpg">
+      <img src="pic-3.jpg">
+      <img src="pic-4.jpg">
+    </div>
+    
+    <div class="bottom-tab">
+      <div class="tab-item" onclick="navTo('home-page')">首页</div>
+      <div class="tab-item">市集</div>
+      <div class="tab-add">+</div>
+      <div class="tab-item">消息</div>
+      <div class="tab-item active">我</div>
+    </div>
+  </div>
+
+  <!-- 页面5：侧边栏 -->
+  <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+  <div id="sidebar" class="sidebar">
+    <div class="menu-item">👤 我的活动</div>
+    <div class="menu-item" onclick="navTo('emotion-map-page'); toggleSidebar();">
+      🗺️ 情绪地图 <span class="tag-new">NEW</span>
+    </div>
+    <div class="menu-item">🛒 我的订单</div>
+    <div class="menu-item">💡 创作中心</div>
+    <div class="menu-item">🕒 浏览记录</div>
+    <div class="menu-item">⚙️ 设置</div>
+  </div>
+
+  <!-- 页面6：情绪地图主页 -->
+  <div id="emotion-map-page" class="page emotion-map-page">
+    <div class="em-header">
+      <div onclick="navTo('home-page')" style="font-size:20px;cursor:pointer;">←</div>
+      <div>情绪地图</div>
+      <div style="font-size:20px;">↗</div>
+    </div>
+    
+    <div class="em-intro">今天的心情，也可以成为周末的路线。</div>
+
+    <!-- 模块1：情绪日历 -->
+    <div class="em-card">
+      <div class="em-card-title">
+        <span>📅 情绪日历</span>
+        <span style="color:var(--text-sub);font-size:13px;font-weight:normal;cursor:pointer;" onclick="openMonthSelector()">2026年5月 ▾</span>
+      </div>
+      <div class="calendar-grid">
+        <div class="cal-day-name">一</div><div class="cal-day-name">二</div><div class="cal-day-name">三</div><div class="cal-day-name">四</div><div class="cal-day-name">五</div><div class="cal-day-name">六</div><div class="cal-day-name">日</div>
+        
+        <div class="cal-cell has-emo">1<div class="emo">😄</div></div>
+        <div class="cal-cell has-emo" style="background:rgba(175,82,222,0.1);">2<div class="emo">🥀</div></div>
+        <div class="cal-cell has-emo" style="background:rgba(0,122,255,0.1);">3<div class="emo">🌧️</div></div>
+        <div class="cal-cell has-emo" style="background:rgba(52,199,89,0.1);">4<div class="emo">🍵</div></div>
+        <div class="cal-cell has-emo" style="background:rgba(255,59,48,0.1);">5<div class="emo">😡</div></div>
+        <div class="cal-cell has-emo">6<div class="emo">😄</div></div>
+        <div class="cal-cell has-emo" style="background:rgba(0,122,255,0.1);">7<div class="emo">🌧️</div></div>
+      </div>
+    </div>
+
+    <!-- 模块2：情绪反光板 -->
+    <div class="em-card">
+      <div class="em-card-title">📊 你的情绪看板（近7天）</div>
+      <div class="progress-bar">
+        <div class="progress-segment" style="width:62%;background:#FF6B81;"></div>
+        <div class="progress-segment" style="width:18%;background:#70A1FF;"></div>
+        <div class="progress-segment" style="width:12%;background:#FFA502;"></div>
+        <div class="progress-segment" style="width:8%;background:#CED6E0;"></div>
+      </div>
+      <div class="progress-legend">
+        <span>治愈类 62%</span>
+        <span>旅游类 18%</span>
+        <span>兴趣类 12%</span>
+        <span>其他 8%</span>
+      </div>
+    </div>
+
+    <div class="em-card">
+      <div class="em-card-title">🎯 算法在做什么</div>
+      <div class="bubble-card">
+        <span>因为你选择了 3 次「emo」，系统为你推送了 47 条治愈内容。</span>
+      </div>
+      <div class="bubble-card">
+        <span>因为你心动了 2 条旅行笔记，系统给你推了 23 条周边游灵感。</span>
+      </div>
+      <div style="font-size:12px;color:var(--text-sub);margin-top:10px;">你可以随时调整推荐方向，避免一直困在同一种内容里。</div>
+    </div>
+
+    <div class="em-card">
+      <div class="em-card-title">💡 你可以做的选择</div>
+      <div class="mode-btns">
+        <div class="mode-btn active" onclick="selectMode(this, 'balanced')">均衡模式</div>
+        <div class="mode-btn" onclick="selectMode(this, 'healing')">治愈优先</div>
+        <div class="mode-btn" onclick="selectMode(this, 'explore')">探索模式</div>
+      </div>
+      <div class="slider-row">
+        <span style="width:30px;">治愈</span>
+        <div class="slider-track"><div class="slider-thumb" style="left:30%;"></div></div>
+        <span style="width:30px;text-align:right;">30%</span>
+      </div>
+      <div class="slider-row">
+        <span style="width:30px;">旅游</span>
+        <div class="slider-track"><div class="slider-thumb" style="left:30%;"></div></div>
+        <span style="width:30px;text-align:right;">30%</span>
+      </div>
+      <div class="slider-row">
+        <span style="width:30px;">兴趣</span>
+        <div class="slider-track"><div class="slider-thumb" style="left:30%;"></div></div>
+        <span style="width:30px;text-align:right;">30%</span>
+      </div>
+    </div>
+
+    <!-- 模块3：情绪旅游地图 -->
+    <div class="em-card" style="margin-bottom:40px;">
+      <div class="em-card-title" style="margin-bottom:5px;">🗺️ 情绪旅游地图</div>
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:15px;">拖拽你的心动笔记，生成周末路线</div>
+      
+      <div class="map-container">
+        <svg viewBox="0 0 300 180" style="width:100%; height:180px; background:#f0f0f0; border-radius:12px;">
+          <path d="M0,40 Q150,70 300,20 L300,180 L0,180 Z" fill="#e0f0ff"/>
+          <path d="M40,0 L70,180" stroke="#fff0b3" stroke-width="8" fill="none"/>
+          <path d="M0,100 L300,80" stroke="#fff0b3" stroke-width="8" fill="none"/>
+          
+          <path d="M70,50 L160,90 L230,130" stroke="#FF2442" stroke-width="2" stroke-dasharray="4,4" fill="none"/>
+          
+          <circle cx="70" cy="50" r="6" fill="#FF2442"/>
+          <text x="80" y="54" font-size="12" fill="#333" font-weight="bold">1️⃣ 咖啡店</text>
+          
+          <circle cx="160" cy="90" r="6" fill="#FF2442"/>
+          <text x="170" y="94" font-size="12" fill="#333" font-weight="bold">2️⃣ 展览馆</text>
+          
+          <circle cx="230" cy="130" r="6" fill="#FF2442"/>
+          <text x="240" y="134" font-size="12" fill="#333" font-weight="bold">3️⃣ 公园</text>
+        </svg>
+        <div class="btn-generate" onclick="showToast('路线生成中...')">一键生成路线</div>
+      </div>
+
+      <div class="pool-scroll">
+        <div class="pool-card">
+          <img src="coffee.jpg">
+          <div class="pool-info">
+            <div class="pool-title">周末治愈咖啡店</div>
+            <div class="pool-loc">📍 上海·武康路</div>
+          </div>
         </div>
-
-    </main>
-
-    <footer class="bg-white mt-12 py-8 border-t border-slate-200">
-        <div class="max-w-6xl mx-auto px-4 text-center text-slate-400 text-sm">
-            <p>© 2024 LLM Learning Tool. Created for learning purposes.</p>
+        <div class="pool-card">
+          <img src="zhanlan.jpg">
+          <div class="pool-info">
+            <div class="pool-title">下班后的小众展览</div>
+            <div class="pool-loc">📍 北京·798</div>
+          </div>
         </div>
-    </footer>
+        <div class="pool-card">
+          <img src="ersha.jpg">
+          <div class="pool-info">
+            <div class="pool-title">适合一个人散步的公园</div>
+            <div class="pool-loc">📍 广州·二沙岛</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <!-- 数据控制脚本 -->
-    <script>
-        function appData() {
-            return {
-                currentTab: 'prompts', // 将默认 Tab 设为 'prompts' 方便你查看效果，发布时可改回 'history'
-                tabs: [
-                    { id: 'history', name: '发展简史' },
-                    { id: 'tools', name: '学习工具' },
-                    { id: 'prompts', name: '提示词库' }, // 新增 Tab
-                    { id: 'news', name: '前沿资讯' }
-                ],
-                // --- 提示词数据 ---
-                promptCategories: [
-                    {
-                        name: "📊 行业研究类",
-                        list: [
-                            {
-                                title: "快速行业调研",
-                                content: "我是一名投资分析师，需要对[输入行业名称，例如：低空经济]进行快速调研。请帮我生成一份行业分析框架，包括：1. 行业定义与核心产业链；2. 市场规模及未来3年增长预测；3. 关键驱动因素（PEST模型分析）；4. 行业内Top 5 主要竞争对手及其优劣势。请以结构化的Markdown格式输出。",
-                                tip: "把方括号里的内容替换成你想研究的行业。"
-                            },
-                            {
-                                title: "竞品对比分析",
-                                content: "请针对[产品A]和[产品B]生成一份详细的竞品分析报告。请从以下维度进行对比：1. 目标用户群体；2. 核心功能差异；3. 定价策略；4. 市场营销手段；5. 用户评价情感分析（基于公开信息）。最后请总结各自的护城河。",
-                                tip: "适合产品经理或市场研究人员。"
-                            },
-                            {
-                                title: "SWOT 战略分析",
-                                content: "请作为一名企业战略顾问，为[公司名称/项目名称]进行SWOT分析。已知背景信息如下：[粘贴背景信息]。请列出内部的优势（Strengths）、劣势（Weaknesses），以及外部的机会（Opportunities）和威胁（Threats），并针对每一项给出具体的战略建议。",
-                                tip: "提供的信息越详细，分析越精准。"
-                            }
-                        ]
-                    },
-                    {
-                        name: "🎓 论文选题与科研助手",
-                        list: [
-                            {
-                                title: "论文选题头脑风暴",
-                                content: "我是[专业名称]专业的研究生，主要研究方向是[具体方向]。目前我正在构思毕业论文选题，请结合近3年的学术热点，为我推荐5个具有研究价值且创新性较强的论文选题。对于每个选题，请说明：1. 题目建议；2. 研究意义；3. 可能用到的研究方法；4. 预期难点。",
-                                tip: "如果不满意，可以要求它“再换个角度生成5个”。"
-                            },
-                            {
-                                title: "学术润色 (Polishing)",
-                                content: "下面这段话是我的论文摘要，请以地道的[具体语言，如：学术英语]风格进行润色。要求：1. 纠正语法错误；2. 提升用词的学术性（使用更精准的动词）；3. 优化句子结构，使其逻辑更连贯，但不要改变原意。\n\n[在此粘贴原文]",
-                                tip: "写英文论文神器，也可以注明目标期刊风格。"
-                            },
-                            {
-                                title: "苏格拉底式导师",
-                                content: "请扮演一位严厉但富有启发性的[专业领域]教授。我提出了一个假设：[输入你的研究假设]。请不要直接告诉我答案，而是通过一系列反问和逻辑漏洞的指出，来挑战我的观点，帮助我完善研究思路。",
-                                tip: "用来在开题答辩前进行模拟演练。"
-                            }
-                        ]
-                    },
-                    {
-                        name: "🌍 日常科普与解释",
-                        list: [
-                            {
-                                title: "费曼学习法 (ELI5)",
-                                content: "请用“费曼学习法”为我解释[输入复杂概念，如：量子纠缠]。要求：1. 把我当成一个12岁的中学生；2. 使用生活中的类比（Analogy）来解释抽象概念；3. 避免使用晦涩的专业术语；4. 最后用一句话总结核心逻辑。",
-                                tip: "Explain Like I'm 5，快速搞懂新概念。"
-                            },
-                            {
-                                title: "高情商回复助手",
-                                content: "场景是：[描述场景，例如：领导要在周末给我安排额外工作，但我已经有安排了]。请帮我生成3个不同委婉程度的回复话术：\n1. 礼貌但坚定地拒绝；\n2. 尝试协商时间；\n3. 略带幽默地拖延。\n要求语气得体，不卑不亢。",
-                                tip: "职场沟通救星。"
-                            }
-                        ]
-                    }
-                ],
-                // --- 历史数据 ---
-                history: [
-                    { year: '2017', title: 'Transformer 诞生', desc: 'Google 团队发表《Attention is All You Need》，提出了 Transformer 架构，彻底改变了 NLP 领域，奠定了现代大模型的基石。' },
-                    { year: '2018', title: 'BERT 与 GPT-1', desc: 'Google 推出 BERT（双向编码），OpenAI 推出 GPT-1（单向预测）。预训练+微调范式开始流行。' },
-                    { year: '2020', title: 'GPT-3 的暴力美学', desc: 'OpenAI 发布 GPT-3，参数量达到 1750 亿。展示了“涌现”能力，Few-shot learning 震惊业界。' },
-                    { year: '2022.11', title: 'ChatGPT 时刻', desc: '基于 GPT-3.5 的对话产品 ChatGPT 发布，RLHF（人类反馈强化学习）让 AI 能够听懂人话，引爆全球 AI 热潮。' },
-                    { year: '2023', title: '百模大战与开源爆发', desc: 'Meta 发布 Llama 系列引领开源复兴；GPT-4 发布展现多模态能力；国内百度文心一言、阿里的通义千问等相继发布。' },
-                    { year: '2024', title: '视频生成与端侧模型', desc: 'Sora 惊艳亮相，多模态理解与生成能力大幅提升。模型开始向“小而美”的端侧设备进军。' }
-                    ],
-                // --- 工具数据 ---
-                tools: [
-                    { name: 'ChatGPT / Claude', category: '对话助手', icon: '💬', bgColor: 'bg-green-100 text-green-600', desc: '目前最强的 AI 对话助手，适合日常问答、代码编写和创意写作。', url: 'https://chat.openai.com' },
-                    { name: 'LangChain', category: '开发框架', icon: '🔗', bgColor: 'bg-orange-100 text-orange-600', desc: '构建 LLM 应用的首选框架，轻松实现 RAG（知识库）和 Agent（智能体）开发。', url: 'https://python.langchain.com/' },
-                    { name: 'Hugging Face', category: '模型社区', icon: '🤗', bgColor: 'bg-yellow-100 text-yellow-600', desc: 'AI 界的 GitHub，海量开源模型（Llama, Mistral）下载与试玩中心。', url: 'https://huggingface.co/' },
-                    { name: 'Coze / 扣子', category: '低代码平台', icon: '⚙️', bgColor: 'bg-purple-100 text-purple-600', desc: '字节跳动推出的 AI Bot 开发平台，无需写代码即可打造这一款专属插件的 Bot。', url: 'https://www.coze.cn/' },
-                    { name: '吴恩达 AI 课程', category: '学习课程', icon: '🎓', bgColor: 'bg-blue-100 text-blue-600', desc: 'DeepLearning.AI 提供的权威入门课程，包含 Prompt Engineering 等。', url: 'https://www.deeplearning.ai/' },
-                    { name: 'Ollama', category: '本地运行', icon: '💻', bgColor: 'bg-slate-200 text-slate-700', desc: '在本地电脑上一键运行 Llama3、Qwen 等开源大模型的极简工具。', url: 'https://ollama.com/' }
-                    ],
-                // --- 资讯数据 ---
-                newsList: [
-                   { id: 1, title: 'GPT-5 预计发布时间推测', summary: '业内传闻 OpenAI 正在训练下一代前沿模型，预计将在推理能力上有重大突破...', date: '2小时前', tag: 'Rumor', tagColor: 'bg-pink-500' },
-                    { id: 2, title: 'Llama 3 发布：开源模型新王者', summary: 'Meta 正式发布 Llama 3，包括 8B 和 70B 版本，基准测试超越多款闭源模型。', date: '昨天', tag: 'OpenSource', tagColor: 'bg-green-500' },
-                    { id: 3, title: 'Google Gemini 1.5 Pro 更新', summary: '上下文窗口扩展至 200万 token，支持超长文本和视频理解。', date: '3天前', tag: 'Product', tagColor: 'bg-blue-500' },
-                    { id: 4, title: '斯坦福发布 2024 AI Index 报告', summary: '全面分析了 AI 在技术性能、经济影响、伦理方面的年度进展。', date: '1周前', tag: 'Report', tagColor: 'bg-indigo-500' }
-                    ]
-            }
-        }
-    </script>
+  <!-- 全局组件 -->
+  <div id="toast" class="toast">提示信息</div>
+  
+  <div id="month-sheet-overlay" class="sidebar-overlay" onclick="closeMonthSelector()"></div>
+  <div id="month-sheet" class="bottom-sheet">
+    <div style="font-weight:600;text-align:center;margin-bottom:15px;">选择月份</div>
+    <div class="sheet-item" onclick="closeMonthSelector()">2026年5月</div>
+    <div class="sheet-item" onclick="closeMonthSelector()">2026年4月</div>
+    <div class="sheet-item" onclick="closeMonthSelector()">2026年3月</div>
+    <div class="sheet-item" style="border:none;color:var(--text-sub);" onclick="closeMonthSelector()">取消</div>
+  </div>
+
+</div>
+
+<script>
+  // 页面导航
+  function navTo(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+    // 滚动到顶部
+    document.getElementById(pageId).scrollTop = 0;
+  }
+
+  // Toast提示
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.innerText = msg;
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 2000);
+  }
+
+  // 侧边栏
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebar-overlay').classList.toggle('open');
+  }
+
+  // 情绪选择
+  function selectEmoji(el, emotion) {
+    const parent = el.parentElement;
+    parent.querySelectorAll('.emoji-btn').forEach(btn => btn.classList.remove('active'));
+    el.classList.add('active');
+    showToast(`已记录当前心情：${emotion}`);
+  }
+
+  // 心动按钮
+  function toggleHeart(el) {
+    el.classList.toggle('active');
+    if(el.classList.contains('active')) {
+      showToast('已加入情绪旅游地图');
+    }
+  }
+
+  // 视频滑动切换逻辑
+  const videoContainer = document.getElementById('videoContainer');
+  const videoBg = document.getElementById('videoBg');
+
+  // 视频背景图列表
+  const videoBackgrounds = [
+    'sunset.jpg',
+    'ersha.jpg',
+    'zhanlan.jpg',
+    'pic-2.jpg',
+    'coffee.jpg'
+  ];
+  let currentVideoIndex = 0;
+
+  // 触摸滑动检测
+  let touchStartY = 0;
+  let touchEndY = 0;
+
+  videoContainer.addEventListener('touchstart', (e) => {
+    touchStartY = e.changedTouches[0].screenY;
+  }, false);
+
+  videoContainer.addEventListener('touchend', (e) => {
+    touchEndY = e.changedTouches[0].screenY;
+    handleVideoSwipe();
+  }, false);
+
+  // 鼠标滑动检测（PC端模拟）
+  videoContainer.addEventListener('mousedown', (e) => {
+    touchStartY = e.screenY;
+  }, false);
+
+  videoContainer.addEventListener('mouseup', (e) => {
+    touchEndY = e.screenY;
+    handleVideoSwipe();
+  }, false);
+
+  // 滑动处理函数
+  function handleVideoSwipe() {
+    const swipeDistance = touchStartY - touchEndY;
+    
+    if (swipeDistance > 50) {
+      // 上滑 → 下一个视频
+      currentVideoIndex = (currentVideoIndex + 1) % videoBackgrounds.length;
+      switchVideo();
+    } else if (swipeDistance < -50) {
+      // 下滑 → 上一个视频
+      currentVideoIndex = (currentVideoIndex - 1 + videoBackgrounds.length) % videoBackgrounds.length;
+      switchVideo();
+    }
+  }
+
+  // 切换视频背景
+  function switchVideo() {
+    videoBg.style.opacity = '0';
+    setTimeout(() => {
+      videoBg.src = videoBackgrounds[currentVideoIndex];
+      videoBg.style.opacity = '1';
+    }, 150);
+    showToast('已切换到下一个视频');
+  }
+
+  // 月份选择器
+  function openMonthSelector() {
+    document.getElementById('month-sheet').classList.add('open');
+    document.getElementById('month-sheet-overlay').classList.add('open');
+  }
+  function closeMonthSelector() {
+    document.getElementById('month-sheet').classList.remove('open');
+    document.getElementById('month-sheet-overlay').classList.remove('open');
+  }
+
+  function selectMode(btn, mode) {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    if (mode === 'balanced') {
+      document.getElementById('slider-healing').value = 30;
+      document.getElementById('slider-travel').value = 30;
+      document.getElementById('slider-interest').value = 30;
+      updateSlider('healing', 30);
+      updateSlider('travel', 30);
+      updateSlider('interest', 30);
+    } else if (mode === 'healing') {
+      document.getElementById('slider-healing').value = 60;
+      document.getElementById('slider-travel').value = 20;
+      document.getElementById('slider-interest').value = 15;
+      updateSlider('healing', 60);
+      updateSlider('travel', 20);
+      updateSlider('interest', 15);
+    } else if (mode === 'explore') {
+      document.getElementById('slider-healing').value = 25;
+      document.getElementById('slider-travel').value = 25;
+      document.getElementById('slider-interest').value = 25;
+      updateSlider('healing', 25);
+      updateSlider('travel', 25);
+      updateSlider('interest', 25);
+    }
+  }
+
+  function updateSlider(type, value) {
+    document.getElementById('value-' + type).textContent = value + '%';
+  }
+
+</script>
+
 </body>
 </html>
